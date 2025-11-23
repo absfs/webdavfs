@@ -29,19 +29,19 @@ type response struct {
 
 // propstat represents property status
 type propstat struct {
-	Prop prop   `xml:"prop"`
+	Prop   prop   `xml:"prop"`
 	Status string `xml:"status"`
 }
 
 // prop represents WebDAV properties
 type prop struct {
-	DisplayName      string        `xml:"displayname"`
-	GetContentLength string        `xml:"getcontentlength"`
-	GetLastModified  string        `xml:"getlastmodified"`
-	ResourceType     resourceType  `xml:"resourcetype"`
-	GetETag          string        `xml:"getetag"`
-	GetContentType   string        `xml:"getcontenttype"`
-	CreationDate     string        `xml:"creationdate"`
+	DisplayName      string       `xml:"displayname"`
+	GetContentLength string       `xml:"getcontentlength"`
+	GetLastModified  string       `xml:"getlastmodified"`
+	ResourceType     resourceType `xml:"resourcetype"`
+	GetETag          string       `xml:"getetag"`
+	GetContentType   string       `xml:"getcontenttype"`
+	CreationDate     string       `xml:"creationdate"`
 }
 
 // resourceType indicates if a resource is a collection (directory)

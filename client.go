@@ -14,10 +14,10 @@ import (
 
 // webdavClient handles HTTP communication with the WebDAV server
 type webdavClient struct {
-	httpClient *http.Client
-	baseURL    *url.URL
-	username   string
-	password   string
+	httpClient  *http.Client
+	baseURL     *url.URL
+	username    string
+	password    string
 	bearerToken string
 }
 
