@@ -46,6 +46,15 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
       run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
+    - name: Run fuzz tests (short)
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
+      run: |
+        go test -fuzz=FuzzXMLParsing -fuzztime=30s
+        go test -fuzz=FuzzPathEncoding -fuzztime=30s
+        go test -fuzz=FuzzHTTPResponse -fuzztime=30s
+        go test -fuzz=FuzzAuthHeaders -fuzztime=30s
+        go test -fuzz=FuzzPropertyValues -fuzztime=30s
+
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
       uses: codecov/codecov-action@v4
