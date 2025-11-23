@@ -242,6 +242,7 @@ Expected package structure:
 ```
 webdavfs/
 ├── README.md           # This file
+├── FUZZING.md          # Fuzz testing documentation
 ├── go.mod              # Module definition
 ├── webdavfs.go         # FileSystem implementation
 ├── file.go             # File wrapper implementation
@@ -249,7 +250,8 @@ webdavfs/
 ├── properties.go       # WebDAV property parsing
 ├── config.go           # Configuration structs
 ├── errors.go           # Error handling
-└── webdavfs_test.go    # Integration tests
+├── webdavfs_test.go    # Integration tests
+└── fuzz_test.go        # Fuzz tests
 ```
 
 ### Key Components
@@ -308,6 +310,12 @@ func (c *webdavClient) move(...) error
 - Test each absfs method with various WebDAV responses
 - Error handling for malformed XML, network errors
 - Path sanitization and encoding
+
+### Fuzz Tests
+- Comprehensive fuzz testing for security and robustness
+- Tests XML parsing, path encoding, HTTP response handling, authentication headers, and property values
+- Helps discover edge cases and potential security vulnerabilities
+- See [FUZZING.md](FUZZING.md) for detailed documentation
 
 ### Integration Tests
 - Real WebDAV server (docker container)
