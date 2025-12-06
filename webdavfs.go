@@ -7,6 +7,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/absfs/absfs"
 )
 
 // FileSystem implements the absfs.FileSystem interface for WebDAV servers
@@ -54,7 +56,7 @@ func (fs *FileSystem) cleanPath(name string) string {
 }
 
 // OpenFile opens a file with the specified flags and permissions
-func (fs *FileSystem) OpenFile(name string, flag int, perm os.FileMode) (*File, error) {
+func (fs *FileSystem) OpenFile(name string, flag int, perm os.FileMode) (absfs.File, error) {
 	name = fs.cleanPath(name)
 
 	// Check if file exists
@@ -110,12 +112,12 @@ func (fs *FileSystem) OpenFile(name string, flag int, perm os.FileMode) (*File, 
 }
 
 // Open opens a file for reading
-func (fs *FileSystem) Open(name string) (*File, error) {
+func (fs *FileSystem) Open(name string) (absfs.File, error) {
 	return fs.OpenFile(name, os.O_RDONLY, 0)
 }
 
 // Create creates a new file for writing
-func (fs *FileSystem) Create(name string) (*File, error) {
+func (fs *FileSystem) Create(name string) (absfs.File, error) {
 	return fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 }
 
@@ -297,3 +299,6 @@ func (fs *FileSystem) Close() error {
 	// Nothing to clean up for WebDAV client
 	return nil
 }
+
+// Interface compliance check
+var _ absfs.FileSystem = (*FileSystem)(nil)

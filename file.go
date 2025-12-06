@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"io"
 	"os"
+
+	"github.com/absfs/absfs"
 )
 
 // File represents an open file in the WebDAV filesystem
@@ -310,3 +312,11 @@ func (f *File) Sync() error {
 func (f *File) Name() string {
 	return f.path
 }
+
+// WriteString writes a string to the file
+func (f *File) WriteString(s string) (int, error) {
+	return f.Write([]byte(s))
+}
+
+// Interface compliance check
+var _ absfs.File = (*File)(nil)
