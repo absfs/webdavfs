@@ -78,9 +78,14 @@ func parseMultistatus(r io.Reader) (*multistatus, error) {
 // parseFileInfo converts a WebDAV response to os.FileInfo
 func parseFileInfo(resp response, basePath string) (os.FileInfo, error) {
 	// Extract the name from href
-	href := strings.TrimPrefix(resp.Href, "/")
+	// WebDAV hrefs are URL paths and should always use forward slashes
+	// However, normalize to handle any backslashes that might have slipped in
+	href := strings.ReplaceAll(resp.Href, "\\", "/")
+	href = strings.TrimPrefix(href, "/")
 	name := path.Base(href)
 	if name == "" || name == "/" {
+		// Normalize basePath too
+		basePath = strings.ReplaceAll(basePath, "\\", "/")
 		name = path.Base(basePath)
 	}
 
