@@ -126,13 +126,21 @@ func (m *statefulMockServer) handlePropfind(w http.ResponseWriter, r *http.Reque
 	if isDir {
 		if depth == "0" {
 			// Just the directory itself
+			// Use basename for displayname to match WebDAV spec
+			basename := strings.TrimSuffix(strings.TrimPrefix(path, "/"), "/")
+			if idx := strings.LastIndex(basename, "/"); idx >= 0 {
+				basename = basename[idx+1:]
+			}
+			if basename == "" {
+				basename = "/"
+			}
 			w.Write([]byte(`<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:">
   <D:response>
     <D:href>` + path + `</D:href>
     <D:propstat>
       <D:prop>
-        <D:displayname>` + path + `</D:displayname>
+        <D:displayname>` + basename + `</D:displayname>
         <D:getlastmodified>` + m.modTime[path].Format(time.RFC1123) + `</D:getlastmodified>
         <D:resourcetype><D:collection/></D:resourcetype>
       </D:prop>
@@ -143,13 +151,21 @@ func (m *statefulMockServer) handlePropfind(w http.ResponseWriter, r *http.Reque
 		} else {
 			// Directory and its children
 			var buf bytes.Buffer
+			// Use basename for displayname to match WebDAV spec
+			basename := strings.TrimSuffix(strings.TrimPrefix(path, "/"), "/")
+			if idx := strings.LastIndex(basename, "/"); idx >= 0 {
+				basename = basename[idx+1:]
+			}
+			if basename == "" {
+				basename = "/"
+			}
 			buf.WriteString(`<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:">
   <D:response>
     <D:href>` + path + `</D:href>
     <D:propstat>
       <D:prop>
-        <D:displayname>` + path + `</D:displayname>
+        <D:displayname>` + basename + `</D:displayname>
         <D:getlastmodified>` + m.modTime[path].Format(time.RFC1123) + `</D:getlastmodified>
         <D:resourcetype><D:collection/></D:resourcetype>
       </D:prop>
@@ -217,13 +233,18 @@ func (m *statefulMockServer) handlePropfind(w http.ResponseWriter, r *http.Reque
 		if modTime.IsZero() {
 			modTime = time.Now()
 		}
+		// Use basename for displayname to match WebDAV spec
+		basename := strings.TrimPrefix(path, "/")
+		if idx := strings.LastIndex(basename, "/"); idx >= 0 {
+			basename = basename[idx+1:]
+		}
 		w.Write([]byte(`<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:">
   <D:response>
     <D:href>` + path + `</D:href>
     <D:propstat>
       <D:prop>
-        <D:displayname>` + path + `</D:displayname>
+        <D:displayname>` + basename + `</D:displayname>
         <D:getcontentlength>` + fmt.Sprintf("%d", len(content)) + `</D:getcontentlength>
         <D:getlastmodified>` + modTime.Format(time.RFC1123) + `</D:getlastmodified>
         <D:resourcetype/>
