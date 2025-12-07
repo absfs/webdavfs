@@ -34,6 +34,9 @@ func httpStatusToOSError(statusCode int, path string) error {
 		return &os.PathError{Op: "stat", Path: path, Err: os.ErrNotExist}
 	case 403:
 		return &os.PathError{Op: "access", Path: path, Err: os.ErrPermission}
+	case 405:
+		// Method Not Allowed - typically when trying to create a collection that already exists
+		return &os.PathError{Op: "mkdir", Path: path, Err: os.ErrExist}
 	case 409:
 		// Conflict - typically parent directory doesn't exist
 		return &os.PathError{Op: "create", Path: path, Err: os.ErrNotExist}

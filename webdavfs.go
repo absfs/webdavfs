@@ -2,6 +2,7 @@
 package webdavfs
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path"
@@ -86,6 +87,11 @@ func (fs *FileSystem) OpenFile(name string, flag int, perm os.FileMode) (absfs.F
 		// File exists
 		if flag&os.O_CREATE != 0 && flag&os.O_EXCL != 0 {
 			return nil, &os.PathError{Op: "open", Path: name, Err: os.ErrExist}
+		}
+
+		// Cannot open directory for writing
+		if info.IsDir() && (flag&os.O_WRONLY != 0 || flag&os.O_RDWR != 0) {
+			return nil, &os.PathError{Op: "open", Path: name, Err: os.ErrInvalid}
 		}
 
 		// Truncate if requested
@@ -242,14 +248,62 @@ func (fs *FileSystem) TempDir() string {
 func (fs *FileSystem) Truncate(name string, size int64) error {
 	name = fs.cleanPath(name)
 
+	if size < 0 {
+		return &os.PathError{Op: "truncate", Path: name, Err: os.ErrInvalid}
+	}
+
 	if size == 0 {
 		// Truncate to zero by uploading empty content
 		return fs.client.put(name, strings.NewReader(""))
 	}
 
-	// For non-zero sizes, this is complex with WebDAV
-	// Would need to download, truncate, and re-upload
-	return &os.PathError{Op: "truncate", Path: name, Err: os.ErrInvalid}
+	// For non-zero sizes, download current content, truncate, and re-upload
+	// First check current file size
+	info, err := fs.client.stat(name)
+	if err != nil {
+		return err
+	}
+
+	currentSize := info.Size()
+	if currentSize == size {
+		// Already the right size, no need to do anything
+		return nil
+	}
+
+	if currentSize < size {
+		// Expanding the file - download, pad with zeros, and re-upload
+		rc, err := fs.client.get(name, 0)
+		if err != nil {
+			return err
+		}
+
+		currentData, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			return &os.PathError{Op: "truncate", Path: name, Err: err}
+		}
+
+		// Pad with zeros
+		newData := make([]byte, size)
+		copy(newData, currentData)
+
+		return fs.client.put(name, bytes.NewReader(newData))
+	}
+
+	// Shrinking the file - download first 'size' bytes and re-upload
+	rc, err := fs.client.get(name, 0)
+	if err != nil {
+		return err
+	}
+
+	truncatedData := make([]byte, size)
+	n, err := io.ReadFull(rc, truncatedData)
+	rc.Close()
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return &os.PathError{Op: "truncate", Path: name, Err: err}
+	}
+
+	return fs.client.put(name, bytes.NewReader(truncatedData[:n]))
 }
 
 // ReadFile reads the entire file

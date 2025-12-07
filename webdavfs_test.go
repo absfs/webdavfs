@@ -718,7 +718,8 @@ func TestFile_Truncate(t *testing.T) {
 }
 
 func TestFileSystem_Truncate(t *testing.T) {
-	server := mockWebDAVServer()
+	// Use the stateful mock server for this test
+	server := newStatefulMockServer()
 	defer server.Close()
 
 	fs, err := New(&Config{URL: server.URL})
@@ -726,16 +727,56 @@ func TestFileSystem_Truncate(t *testing.T) {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
 
+	// Create a test file with content
+	content := []byte("hello world")
+	err = fs.WriteFile("/test.txt", content, 0644)
+	if err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
 	// Truncate to 0 should succeed
 	err = fs.Truncate("/test.txt", 0)
 	if err != nil {
-		t.Errorf("Truncate() error = %v", err)
+		t.Errorf("Truncate(0) error = %v", err)
 	}
 
-	// Truncate to non-zero should fail
+	// Verify file is empty
+	info, err := fs.Stat("/test.txt")
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if info.Size() != 0 {
+		t.Errorf("After truncate(0): size = %d, want 0", info.Size())
+	}
+
+	// Write new content
+	err = fs.WriteFile("/test.txt", content, 0644)
+	if err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	// Truncate to non-zero size (shrink)
 	err = fs.Truncate("/test.txt", 5)
-	if err == nil {
-		t.Error("Truncate(5) expected error, got nil")
+	if err != nil {
+		t.Errorf("Truncate(5) error = %v", err)
+	}
+
+	// Verify file size
+	info, err = fs.Stat("/test.txt")
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if info.Size() != 5 {
+		t.Errorf("After truncate(5): size = %d, want 5", info.Size())
+	}
+
+	// Verify content
+	data, err := fs.ReadFile("/test.txt")
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(data) != "hello" {
+		t.Errorf("After truncate(5): content = %q, want %q", string(data), "hello")
 	}
 }
 
@@ -1603,14 +1644,9 @@ func TestFile_WriteOnDir(t *testing.T) {
 		t.Fatalf("Failed to create filesystem: %v", err)
 	}
 
-	f, err := fs.OpenFile("/dir", os.O_RDWR, 0755)
-	if err != nil {
-		t.Fatalf("OpenFile() error = %v", err)
-	}
-	defer f.Close()
-
-	_, err = f.Write([]byte("test"))
+	// Opening a directory for writing should fail
+	_, err = fs.OpenFile("/dir", os.O_RDWR, 0755)
 	if err == nil {
-		t.Error("Write on directory expected error")
+		t.Error("OpenFile directory for writing should fail")
 	}
 }
