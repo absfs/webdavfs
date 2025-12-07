@@ -48,6 +48,10 @@ func New(config *Config) (*FileSystem, error) {
 
 // cleanPath normalizes a path
 func (fs *FileSystem) cleanPath(name string) string {
+	// Normalize Windows backslashes to forward slashes
+	// WebDAV paths must always use forward slashes (URL paths)
+	name = strings.ReplaceAll(name, "\\", "/")
+
 	// Handle absolute paths
 	if path.IsAbs(name) {
 		return path.Clean(name)
