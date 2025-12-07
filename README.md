@@ -2,8 +2,8 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/absfs/webdavfs.svg)](https://pkg.go.dev/github.com/absfs/webdavfs)
 [![Go Report Card](https://goreportcard.com/badge/github.com/absfs/webdavfs)](https://goreportcard.com/report/github.com/absfs/webdavfs)
-[![CI](https://github.com/absfs/webdavfs/workflows/CI/badge.svg)](https://github.com/absfs/webdavfs/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/absfs/webdavfs/actions/workflows/ci.yml/badge.svg)](https://github.com/absfs/webdavfs/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 WebDAV filesystem implementation for the [absfs](https://github.com/absfs/absfs) ecosystem.
 
