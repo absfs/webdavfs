@@ -9,9 +9,63 @@ WebDAV filesystem implementation for the [absfs](https://github.com/absfs/absfs)
 
 ## Overview
 
-`webdavfs` is an implementation of the `absfs.FileSystem` interface that provides access to remote WebDAV servers. It allows any Go application using the absfs abstraction to transparently work with WebDAV-hosted files and directories as if they were local filesystem operations.
+`webdavfs` provides **bidirectional** WebDAV support for the absfs ecosystem:
 
-This package acts as an **adapter** between the absfs filesystem interface and WebDAV protocol operations, enabling seamless integration with any WebDAV-compliant server (Nextcloud, ownCloud, Apache mod_dav, nginx, etc.).
+1. **Client Mode** - Access remote WebDAV servers through the `absfs.FileSystem` interface
+2. **Server Mode** - Expose any `absfs.FileSystem` as a WebDAV server
+
+This enables seamless integration with any WebDAV-compliant server (Nextcloud, ownCloud, Apache mod_dav, nginx, etc.) and allows serving any absfs filesystem (memfs, osfs, s3fs, unionfs, etc.) over WebDAV.
+
+## Quick Start
+
+### Client: Connect to a WebDAV Server
+
+```go
+import "github.com/absfs/webdavfs"
+
+// Connect to a WebDAV server
+fs, err := webdavfs.New(&webdavfs.Config{
+    URL:      "https://webdav.example.com/remote.php/dav/files/user/",
+    Username: "user",
+    Password: "password",
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer fs.Close()
+
+// Use standard absfs operations
+file, _ := fs.Open("/documents/report.txt")
+```
+
+### Server: Serve an absfs Filesystem via WebDAV
+
+```go
+import (
+    "github.com/absfs/memfs"
+    "github.com/absfs/webdavfs"
+)
+
+// Create any absfs.FileSystem
+fs, _ := memfs.NewFS()
+
+// Serve it via WebDAV
+server := webdavfs.NewServer(fs, &webdavfs.ServerConfig{
+    Prefix: "/webdav",
+    Auth: &webdavfs.BasicAuth{
+        Realm: "My Server",
+        Validator: func(user, pass string) bool {
+            return user == "admin" && pass == "secret"
+        },
+    },
+})
+
+http.ListenAndServe(":8080", server)
+```
+
+---
+
+## Client Mode (Detailed)
 
 ## Architecture
 
@@ -331,6 +385,175 @@ Against common WebDAV servers:
 - ownCloud
 - SabreDAV
 
+---
+
+## Server Mode (Detailed)
+
+The server functionality allows exposing any `absfs.FileSystem` as a WebDAV server. This is useful for:
+- Serving in-memory filesystems for testing
+- Creating WebDAV gateways to S3, SFTP, or other storage backends
+- Implementing virtual filesystems with WebDAV access
+
+### Server Architecture
+
+```
+┌─────────────────────┐
+│   WebDAV Client     │
+│  (any HTTP client)  │
+└──────────┬──────────┘
+           │ WebDAV HTTP protocol
+           ▼
+┌─────────────────────┐
+│  webdavfs.Server    │
+│  (HTTP handler)     │
+└──────────┬──────────┘
+           │ webdav.FileSystem interface
+           ▼
+┌─────────────────────┐
+│ ServerFileSystem    │
+│ (adapter)           │
+└──────────┬──────────┘
+           │ absfs.FileSystem interface
+           ▼
+┌─────────────────────┐
+│  Any absfs FS       │
+│  (memfs, osfs, etc) │
+└─────────────────────┘
+```
+
+### Server Configuration
+
+```go
+type ServerConfig struct {
+    // Prefix is the URL path prefix (e.g., "/webdav")
+    Prefix string
+
+    // Auth is an optional authentication provider
+    Auth AuthProvider
+
+    // Logger logs each request
+    Logger func(r *http.Request, err error)
+
+    // LockSystem for WebDAV locking (default: in-memory)
+    LockSystem webdav.LockSystem
+}
+```
+
+### Authentication Options
+
+#### Basic Authentication
+
+```go
+server := webdavfs.NewServer(fs, &webdavfs.ServerConfig{
+    Auth: &webdavfs.BasicAuth{
+        Realm: "My WebDAV Server",
+        Validator: func(username, password string) bool {
+            return username == "admin" && password == "secret"
+        },
+    },
+})
+```
+
+#### Bearer Token Authentication
+
+```go
+server := webdavfs.NewServer(fs, &webdavfs.ServerConfig{
+    Auth: &webdavfs.BearerAuth{
+        Realm: "API",
+        Validator: func(token string) bool {
+            return token == "valid-api-token"
+        },
+    },
+})
+```
+
+#### Custom Authentication
+
+Implement the `AuthProvider` interface:
+
+```go
+type AuthProvider interface {
+    Authenticate(w http.ResponseWriter, r *http.Request) bool
+}
+```
+
+### Server Usage Examples
+
+#### Serve a Union Filesystem
+
+```go
+import (
+    "github.com/absfs/memfs"
+    "github.com/absfs/osfs"
+    "github.com/absfs/unionfs"
+    "github.com/absfs/webdavfs"
+)
+
+// Create layers
+base, _ := osfs.NewFS()
+overlay, _ := memfs.NewFS()
+
+// Create union
+ufs, _ := unionfs.New(overlay, base)
+
+// Serve via WebDAV
+server := webdavfs.NewServer(ufs, nil)
+http.ListenAndServe(":8080", server)
+```
+
+#### Serve S3 via WebDAV
+
+```go
+import (
+    "github.com/absfs/s3fs"
+    "github.com/absfs/webdavfs"
+)
+
+// Connect to S3
+s3, _ := s3fs.New(&s3fs.Config{
+    Bucket: "my-bucket",
+    Region: "us-east-1",
+})
+
+// Serve S3 bucket via WebDAV
+server := webdavfs.NewServer(s3, &webdavfs.ServerConfig{
+    Prefix: "/s3",
+})
+http.ListenAndServe(":8080", server)
+```
+
+#### With Logging
+
+```go
+server := webdavfs.NewServer(fs, &webdavfs.ServerConfig{
+    Logger: func(r *http.Request, err error) {
+        if err != nil {
+            log.Printf("WebDAV ERROR %s %s: %v", r.Method, r.URL.Path, err)
+        } else {
+            log.Printf("WebDAV %s %s", r.Method, r.URL.Path)
+        }
+    },
+})
+```
+
+### WebDAV Methods Supported
+
+| HTTP Method | WebDAV Operation | Description |
+|-------------|-----------------|-------------|
+| GET | Download | Download file content |
+| PUT | Upload | Upload file content |
+| DELETE | Remove | Delete file or directory |
+| MKCOL | Mkdir | Create directory |
+| COPY | Copy | Copy resource |
+| MOVE | Rename | Move/rename resource |
+| PROPFIND | Stat/List | Get properties or list directory |
+| PROPPATCH | SetProps | Modify properties |
+| LOCK | Lock | Lock resource (in-memory by default) |
+| UNLOCK | Unlock | Unlock resource |
+| OPTIONS | Discover | WebDAV capability discovery |
+
+---
+
 ## Related Projects
 
 ### absfs Ecosystem
@@ -341,9 +564,10 @@ Against common WebDAV servers:
 - [s3fs](https://github.com/absfs/s3fs) - S3-compatible object storage
 - [corfs](https://github.com/absfs/corfs) - Cache-on-read wrapper
 - [cowfs](https://github.com/absfs/cowfs) - Copy-on-write layers
+- [unionfs](https://github.com/absfs/unionfs) - Union/overlay filesystem
 
 ### WebDAV Libraries
-- [golang.org/x/net/webdav](https://pkg.go.dev/golang.org/x/net/webdav) - WebDAV server implementation
+- [golang.org/x/net/webdav](https://pkg.go.dev/golang.org/x/net/webdav) - WebDAV server implementation (used by Server mode)
 - [github.com/studio-b12/gowebdav](https://github.com/studio-b12/gowebdav) - WebDAV client library
 
 ## Design Philosophy
