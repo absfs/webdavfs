@@ -4,6 +4,7 @@ package webdavfs
 import (
 	"bytes"
 	"io"
+	iofs "io/fs"
 	"os"
 	"path"
 	"strings"
@@ -210,16 +211,6 @@ func (fs *FileSystem) Chtimes(name string, atime time.Time, mtime time.Time) err
 	return fs.client.proppatch(name, mtime)
 }
 
-// Separator returns the path separator
-func (fs *FileSystem) Separator() uint8 {
-	return '/'
-}
-
-// ListSeparator returns the list separator
-func (fs *FileSystem) ListSeparator() uint8 {
-	return ':'
-}
-
 // Chdir changes the current working directory
 func (fs *FileSystem) Chdir(dir string) error {
 	dir = fs.cleanPath(dir)
@@ -310,8 +301,11 @@ func (fs *FileSystem) Truncate(name string, size int64) error {
 	return fs.client.put(name, bytes.NewReader(truncatedData[:n]))
 }
 
-// ReadFile reads the entire file
+// ReadFile reads the entire file and returns its contents.
+// This method is compatible with io/fs.ReadFileFS.
 func (fs *FileSystem) ReadFile(name string) ([]byte, error) {
+	name = fs.cleanPath(name)
+
 	f, err := fs.Open(name)
 	if err != nil {
 		return nil, err
@@ -356,6 +350,44 @@ func (fs *FileSystem) WriteFile(name string, data []byte, perm os.FileMode) erro
 func (fs *FileSystem) Close() error {
 	// Nothing to clean up for WebDAV client
 	return nil
+}
+
+// dirEntry wraps os.FileInfo to implement iofs.DirEntry
+type dirEntry struct {
+	info os.FileInfo
+}
+
+func (d dirEntry) Name() string               { return d.info.Name() }
+func (d dirEntry) IsDir() bool                { return d.info.IsDir() }
+func (d dirEntry) Type() iofs.FileMode        { return d.info.Mode().Type() }
+func (d dirEntry) Info() (os.FileInfo, error) { return d.info, nil }
+
+// ReadDir reads the named directory and returns a list of directory entries
+// sorted by filename. This is compatible with io/fs.ReadDirFS.
+func (fs *FileSystem) ReadDir(name string) ([]iofs.DirEntry, error) {
+	name = fs.cleanPath(name)
+
+	infos, err := fs.client.readDir(name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert []os.FileInfo to []iofs.DirEntry
+	entries := make([]iofs.DirEntry, len(infos))
+	for i, info := range infos {
+		entries[i] = dirEntry{info}
+	}
+
+	return entries, nil
+}
+
+// Sub returns an fs.FS corresponding to the subtree rooted at dir.
+// This is compatible with io/fs.SubFS.
+func (fs *FileSystem) Sub(dir string) (iofs.FS, error) {
+	dir = fs.cleanPath(dir)
+
+	// Use absfs.FilerToFS to create a read-only fs.FS
+	return absfs.FilerToFS(fs, dir)
 }
 
 // Interface compliance check

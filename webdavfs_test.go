@@ -317,24 +317,6 @@ func TestFileSystem_MkdirAndChdir(t *testing.T) {
 	}
 }
 
-func TestFileSystem_Separator(t *testing.T) {
-	server := mockWebDAVServer()
-	defer server.Close()
-
-	fs, err := New(&Config{URL: server.URL})
-	if err != nil {
-		t.Fatalf("Failed to create filesystem: %v", err)
-	}
-
-	if fs.Separator() != '/' {
-		t.Errorf("Expected separator '/', got '%c'", fs.Separator())
-	}
-
-	if fs.ListSeparator() != ':' {
-		t.Errorf("Expected list separator ':', got '%c'", fs.ListSeparator())
-	}
-}
-
 func TestFileSystem_TempDir(t *testing.T) {
 	server := mockWebDAVServer()
 	defer server.Close()

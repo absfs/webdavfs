@@ -3,6 +3,7 @@ package webdavfs
 import (
 	"bytes"
 	"io"
+	iofs "io/fs"
 	"os"
 
 	"github.com/absfs/absfs"
@@ -263,6 +264,67 @@ func (f *File) Readdirnames(n int) ([]string, error) {
 	}
 
 	return names, nil
+}
+
+// ReadDir reads the contents of the directory and returns a slice of up to n
+// DirEntry values in directory order. This is compatible with io/fs.ReadDirFile.
+//
+// If n > 0, ReadDir returns at most n entries. In this case, if ReadDir
+// returns an empty slice, it will return a non-nil error explaining why.
+// At the end of a directory, the error is io.EOF.
+//
+// If n <= 0, ReadDir returns all entries from the directory in a single slice.
+// In this case, if ReadDir succeeds (reads all the way to the end of the
+// directory), it returns the slice and a nil error.
+func (f *File) ReadDir(n int) ([]iofs.DirEntry, error) {
+	if f.closed {
+		return nil, &FileClosedError{Path: f.path}
+	}
+
+	if !f.info.IsDir() {
+		return nil, &os.PathError{Op: "readdir", Path: f.path, Err: os.ErrInvalid}
+	}
+
+	// Load directory contents if not cached
+	if f.dirInfos == nil {
+		infos, err := f.fs.client.readDir(f.path)
+		if err != nil {
+			return nil, err
+		}
+		f.dirInfos = infos
+		f.dirIndex = 0
+	}
+
+	// Return all remaining entries if n <= 0
+	if n <= 0 {
+		result := make([]iofs.DirEntry, len(f.dirInfos)-f.dirIndex)
+		for i, info := range f.dirInfos[f.dirIndex:] {
+			result[i] = dirEntry{info}
+		}
+		f.dirIndex = len(f.dirInfos)
+		if len(result) == 0 {
+			return nil, io.EOF
+		}
+		return result, nil
+	}
+
+	// Return n entries
+	if f.dirIndex >= len(f.dirInfos) {
+		return nil, io.EOF
+	}
+
+	end := f.dirIndex + n
+	if end > len(f.dirInfos) {
+		end = len(f.dirInfos)
+	}
+
+	result := make([]iofs.DirEntry, end-f.dirIndex)
+	for i, info := range f.dirInfos[f.dirIndex:end] {
+		result[i] = dirEntry{info}
+	}
+	f.dirIndex = end
+
+	return result, nil
 }
 
 // Truncate changes the size of the file

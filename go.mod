@@ -1,12 +1,20 @@
 module github.com/absfs/webdavfs
 
-go 1.25.4
+go 1.24.0
 
 require (
-	github.com/absfs/absfs v0.0.0-20251124175320-57b9f1cc64c5
-	github.com/absfs/fstesting v0.0.0-20251207001735-c9d62652ff82
-	github.com/absfs/memfs v0.0.0-20251208202300-cbb7a1d8f473
+	github.com/absfs/absfs v0.0.0-20251208232938-aa0ca30de832
+	github.com/absfs/fstesting v0.0.0-20251207022242-d748a85c4a1e
+	github.com/absfs/memfs v0.0.0-20251208230836-c6633f45580a
 	golang.org/x/net v0.47.0
 )
 
 require github.com/absfs/inode v0.0.0-20251208170702-9db24ab95ae4 // indirect
+
+replace (
+	github.com/absfs/absfs => ../absfs
+	github.com/absfs/fstesting => ../fstesting
+	github.com/absfs/fstools => ../fstools
+	github.com/absfs/inode => ../inode
+	github.com/absfs/memfs => ../memfs
+)
