@@ -2,11 +2,30 @@ package webdavfs
 
 import (
 	"context"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/absfs/absfs"
 	"golang.org/x/net/webdav"
 )
+
+// normalizePath cleans a path for filesystem operations.
+// It handles URL-formatted paths (from WebDAV Destination header) and
+// strips trailing slashes that some clients add for directories.
+func normalizePath(p string) string {
+	// If it's a URL, extract just the path
+	if strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") {
+		if u, err := url.Parse(p); err == nil {
+			p = u.Path
+		}
+	}
+	// Strip trailing slash (except for root)
+	if len(p) > 1 && strings.HasSuffix(p, "/") {
+		p = strings.TrimSuffix(p, "/")
+	}
+	return p
+}
 
 // ServerFileSystem adapts absfs.FileSystem to webdav.FileSystem,
 // allowing any absfs filesystem to be served via WebDAV.
@@ -45,8 +64,9 @@ func (s *ServerFileSystem) RemoveAll(ctx context.Context, name string) error {
 
 // Rename moves/renames a file or directory.
 // The context parameter is accepted for interface compliance but not used.
+// Paths are normalized to handle URL-formatted destinations and trailing slashes.
 func (s *ServerFileSystem) Rename(ctx context.Context, oldName, newName string) error {
-	return s.fs.Rename(oldName, newName)
+	return s.fs.Rename(normalizePath(oldName), normalizePath(newName))
 }
 
 // Stat returns file information.
