@@ -1,6 +1,6 @@
 module github.com/absfs/webdavfs
 
-go 1.24.0
+go 1.21
 
 require (
 	github.com/absfs/absfs v1.0.0
